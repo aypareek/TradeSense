@@ -2,8 +2,8 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
-st.set_page_config(page_title="TradeSense (Educational Only)", page_icon=":chart_with_upwards_trend:")
-
+st.set_page_config(page_title="TradeSense (Educational Only)", page_icon="logo/TradeSense transparent.png")
+st.image("logo/TradeSense transparent.png", width=120)
 # ----- Banner -----
 st.markdown(
     "<div style='background-color: #FFF3CD; padding: 10px; border-radius: 8px; border: 1px solid #FFEEBA; color: #8A6D3B;'>"
@@ -14,6 +14,9 @@ st.markdown(
 # ----- App Title -----
 st.title("TradeSense :chart_with_upwards_trend:")
 st.write("Enter a NASDAQ ticker to get a basic educational recommendation.")
+
+st.sidebar.image("logo/TradeSense transparent.png", width=80)
+st.sidebar.title("TradeSense")
 
 # ----- Input -----
 ticker = st.text_input("NASDAQ Stock Ticker (e.g. AAPL, TSLA, MSFT)").strip().upper()
