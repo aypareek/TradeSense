@@ -17,12 +17,99 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ----- App Title -----
 st.title("TradeSense :chart_with_upwards_trend:")
-st.write("Enter a NASDAQ ticker to get a basic educational recommendation.")
 
+# ===== SIDEBAR: About & Portfolio =====
 st.sidebar.image("logo/TradeSense transparent.png", width=80)
 st.sidebar.title("TradeSense")
+
+st.sidebar.markdown("---")
+st.sidebar.header("About TradeSense")
+st.sidebar.write(
+    "TradeSense helps you analyze NASDAQ stocks with educational charts, news, and company info. "
+    "It's for learning only, not investment advice."
+)
+
+st.sidebar.markdown("---")
+st.sidebar.header("📈 My Mock Portfolio")
+
+# ===== Mock Portfolio Simulator (Session State) =====
+if "portfolio" not in st.session_state:
+    st.session_state.portfolio = {}
+if "cash" not in st.session_state:
+    st.session_state.cash = 10000.0  # Start with $10,000
+
+add_ticker = st.sidebar.text_input("Add Ticker (e.g. AAPL)").strip().upper()
+add_qty = st.sidebar.number_input("Quantity", min_value=1, max_value=10000, value=1, step=1)
+if st.sidebar.button("Buy (Add)"):
+    if add_ticker:
+        # Get latest price
+        try:
+            latest_price = yf.Ticker(add_ticker).history(period="1d")['Close'][-1]
+        except Exception:
+            latest_price = 0
+        total_cost = latest_price * add_qty
+
+        if total_cost == 0:
+            st.sidebar.warning(f"Could not fetch price for {add_ticker}.")
+        elif total_cost > st.session_state.cash:
+            st.sidebar.warning(f"Not enough cash! You need ${total_cost:,.2f}, but only have ${st.session_state.cash:,.2f}.")
+        else:
+            st.session_state.portfolio.setdefault(add_ticker, 0)
+            st.session_state.portfolio[add_ticker] += add_qty
+            st.session_state.cash -= total_cost
+            st.sidebar.success(f"Bought {add_qty} {add_ticker} at ${latest_price:.2f} each (${total_cost:,.2f}).")
+
+# Show portfolio table and value
+if st.session_state.portfolio:
+    port_df = pd.DataFrame(list(st.session_state.portfolio.items()), columns=["Ticker", "Quantity"])
+    try:
+        # Get latest prices
+        prices = {}
+        for tkr in st.session_state.portfolio.keys():
+            try:
+                prices[tkr] = yf.Ticker(tkr).history(period="1d")['Close'][-1]
+            except Exception:
+                prices[tkr] = 0
+        port_df["Latest Price"] = port_df["Ticker"].map(prices)
+        port_df["Market Value"] = port_df["Quantity"] * port_df["Latest Price"]
+        st.sidebar.dataframe(port_df, hide_index=True)
+        st.sidebar.write(f"**Total Portfolio Value: ${port_df['Market Value'].sum():,.2f}**")
+    except Exception:
+        st.sidebar.dataframe(port_df, hide_index=True)
+        st.sidebar.write("Error fetching prices.")
+
+    # Sell logic
+    sell_ticker = st.sidebar.selectbox("Sell Ticker", [""] + list(st.session_state.portfolio.keys()))
+    sell_qty = st.sidebar.number_input("Sell Quantity", min_value=1, max_value=10000, value=1, step=1, key="sell_qty")
+    if st.sidebar.button("Sell"):
+        if sell_ticker and sell_ticker in st.session_state.portfolio:
+            try:
+                latest_price = yf.Ticker(sell_ticker).history(period="1d")['Close'][-1]
+            except Exception:
+                latest_price = 0
+            sell_qty_final = min(sell_qty, st.session_state.portfolio[sell_ticker])
+            st.session_state.portfolio[sell_ticker] -= sell_qty_final
+            st.session_state.cash += sell_qty_final * latest_price
+            if st.session_state.portfolio[sell_ticker] <= 0:
+                del st.session_state.portfolio[sell_ticker]
+            st.sidebar.success(f"Sold {sell_qty_final} {sell_ticker} at ${latest_price:.2f} each (${sell_qty_final * latest_price:,.2f}).")
+else:
+    st.sidebar.info("Your mock portfolio is empty. Add stocks above!")
+
+st.sidebar.write(f"**Cash Remaining:** ${st.session_state.cash:,.2f}")
+
+# ===== MAIN APP =====
+
+# ---- Helper: Human Readable Large Numbers -----
+def human_format(num):
+    if not num or num == 0:
+        return "N/A"
+    for unit in ['','K','M','B','T']:
+        if abs(num) < 1000.0:
+            return f"{num:3.1f}{unit}"
+        num /= 1000.0
+    return f"{num:.1f}P"
 
 # ---- Simple Sentiment Function ----
 def get_sentiment(text):
@@ -66,22 +153,15 @@ timeframes = {
     "2 Years": "2y"
 }
 
-# ----- Helper: Human Readable Large Numbers -----
-def human_format(num):
-    for unit in ['','K','M','B','T']:
-        if abs(num) < 1000.0:
-            return f"{num:3.1f}{unit}"
-        num /= 1000.0
-    return f"{num:.1f}P"
-
-# ----- Input -----
+# ===== Ticker Input & Selection =====
+st.markdown("---")
+st.header("🔍 Analyze a Stock")
 ticker = st.text_input("NASDAQ Stock Ticker (e.g. AAPL, TSLA, MSFT)").strip().upper()
 timeframe = st.selectbox(
     "Select timeframe for analysis:",
     list(timeframes.keys()),
     index=1
 )
-
 period = timeframes[timeframe]
 
 if ticker:
@@ -94,10 +174,9 @@ if ticker:
             st.warning("No historical data found for this ticker.")
         else:
             # ---- COMPANY PROFILE & METRICS ----
-            long_name = info.get('longName', ticker)
             st.markdown("---")
-            st.subheader(f"{long_name} ({ticker})")
-
+            st.header("🏢 Company Profile & Key Metrics")
+            long_name = info.get('longName', ticker)
             business_summary = info.get('longBusinessSummary', None)
             ceo = info.get('companyOfficers', [{}])[0].get('name', None)
             market_cap = info.get('marketCap', None)
@@ -111,16 +190,12 @@ if ticker:
             with col1:
                 if business_summary:
                     st.write(f"**Description:** {business_summary}")
-
                 if ceo:
                     st.write(f"**CEO:** {ceo}")
-
                 if market_cap:
                     st.write(f"**Market Cap:** {human_format(market_cap)} USD")
-
                 if dividend_yield:
                     st.write(f"**Dividend Yield:** {dividend_yield*100:.2f}%")
-
             with col2:
                 if hq.strip(', '):
                     st.write(f"**Headquarters:** {hq.strip(', ')}")
@@ -128,6 +203,11 @@ if ticker:
                     st.write(f"**Founded:** {pd.to_datetime(founded, unit='s').year}")
                 if website:
                     st.write(f"**Website:** [{website}]({website})")
+
+            # ---- TECHNICAL EXPLANATIONS ----
+            st.info("**SMA:** Simple Moving Average. Shows price trends over a set period.")
+            st.info("**RSI:** Relative Strength Index (14 days). Measures recent price momentum; above 70 = overbought, below 30 = oversold.")
+            st.info("**P/E Ratio:** Price to Earnings. Compares stock price to company earnings; a basic value indicator.")
 
             # ---- Calculate Indicators ----
             close = df['Close']
@@ -161,8 +241,7 @@ if ticker:
 
             # ---- Show Chart ----
             st.markdown("---")
-            st.subheader("Price Trend & Technical Indicators")
-
+            st.header("📊 Price Trend & Technical Indicators")
             chart_type = st.selectbox(
                 "Choose chart type", 
                 ("Candlestick with SMAs", "Line Chart with SMAs & RSI")
@@ -230,8 +309,10 @@ if ticker:
                 st.plotly_chart(fig_rsi, use_container_width=True)
 
             # ---- Display News Headlines with Sentiment, in Expander ----
+            st.markdown("---")
+            st.header("📰 Latest News Headlines")
             news_api_key = os.environ.get("NEWS_API_KEY")
-            with st.expander("Latest News Headlines 📰 (click to expand/collapse)"):
+            with st.expander("Click to expand/collapse news"):
                 if news_api_key:
                     news = get_news(ticker, news_api_key)
                     if news:
@@ -248,6 +329,8 @@ if ticker:
                     st.info("Add your NewsAPI.org key to an environment variable named `NEWS_API_KEY` to see latest headlines here.")
 
             # ---- Recommendation Logic ----
+            st.markdown("---")
+            st.header("🎯 Educational Recommendation")
             reasons = []
             # Use latest available SMAs for logic
             latest_sma_50 = df['SMA50'].iloc[-1] if not np.isnan(df['SMA50'].iloc[-1]) else None
@@ -290,19 +373,7 @@ if ticker:
                 rec = "Observe"
                 emoji = "👀"
 
-            # ---- Display Info and Recommendation ----
-            st.markdown("---")
-            st.write(f"**Sector:** {sector}")
-            st.write(f"**Latest Price:** ${price:.2f}")
-            st.write(f"**P/E Ratio:** {pe_ratio if pe_ratio is not None else 'N/A'}")
-            st.write(f"**Sector Average P/E:** {sector_pe_avg}")
-
-            st.markdown("### ESG/Ethical Badge :seedling:")
-            st.info("ESG/Ethical rating integration coming soon. (This is a placeholder for future ethical investing features.)")
-
-            st.markdown("---")
             st.markdown(f"## Recommendation: {rec} {emoji}")
-
             st.markdown("### Why?")
             for reason in reasons:
                 st.write(f"- {reason}")
