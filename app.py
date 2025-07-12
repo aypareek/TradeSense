@@ -7,8 +7,47 @@ import requests
 import os
 import ta  # Technical Analysis library
 
+# --------- MOBILE/BRAND CSS POLISH ---------
 st.set_page_config(page_title="TradeSense (Educational Only)", page_icon="logo/TradeSense transparent.png")
-st.image("logo/TradeSense transparent.png", width=120)
+st.image("logo/TradeSense transparent.png", width=80)
+
+st.markdown(
+    """
+    <style>
+    .main {
+        font-size: 16px !important;
+    }
+    @media only screen and (max-width: 600px) {
+        .main {
+            font-size: 14px !important;
+        }
+        .block-container {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        img {
+            width: 60px !important;
+        }
+    }
+    .sidebar-content {
+        background-color: #f0f6fa;
+        border-radius: 8px;
+        padding: 0.5rem;
+    }
+    .stButton>button {
+        background-color: #0f8cff;
+        color: white;
+        border-radius: 8px;
+        padding: 0.5em 1.2em;
+        border: none;
+    }
+    .stButton>button:hover {
+        background-color: #1064a3;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ----- Banner -----
 st.markdown(
@@ -20,8 +59,11 @@ st.markdown(
 st.title("TradeSense :chart_with_upwards_trend:")
 
 # ===== SIDEBAR: About & Portfolio =====
-st.sidebar.image("logo/TradeSense transparent.png", width=80)
-st.sidebar.title("TradeSense")
+st.sidebar.markdown(
+    "<h2 style='color:#0f8cff; font-family:sans-serif;'>TradeSense</h2>",
+    unsafe_allow_html=True,
+)
+st.sidebar.image("logo/TradeSense transparent.png", width=60)
 
 st.sidebar.markdown("---")
 st.sidebar.header("About TradeSense")
@@ -98,6 +140,12 @@ else:
     st.sidebar.info("Your mock portfolio is empty. Add stocks above!")
 
 st.sidebar.write(f"**Cash Remaining:** ${st.session_state.cash:,.2f}")
+
+st.sidebar.markdown("---")
+if st.sidebar.button("🔄 Reset Portfolio & Cash"):
+    st.session_state.portfolio = {}
+    st.session_state.cash = 10000.0
+    st.sidebar.success("Portfolio and cash reset!")
 
 # ===== MAIN APP =====
 
